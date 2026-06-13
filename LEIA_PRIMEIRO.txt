@@ -1,0 +1,18 @@
+HOTFIX V11 — ANÚNCIOS VENDÁVEIS
+
+Aplicar somente no projeto PALPITAO-EMPRESAS.
+
+Arquivos para substituir:
+- src/main.js
+- src/styles.css
+
+Não rodar SQL.
+Não mexer no Supabase.
+Não mexer no Palpitão antigo.
+
+Teste mínimo:
+1. npm run dev
+2. Admin > Repositório de anúncios
+3. Tela Palpitar > subir imagem quadrada > marcar Ativo > salvar
+4. Conferir se aparece no topo, no lugar visual do antigo logo da Copa
+5. Testar outro anúncio retangular em Ranking ou Jogos
