@@ -13,11 +13,9 @@ const state = {
   games: [],
   predictions: [],
   profiles: [],
-  ads: [],
   filters: { grupo: "todos", rodada: "todos", fase: "todos", status: "todos" },
   message: "",
   csv: null,
-  participantCsv: null,
   selectedPartnerId: localStorage.getItem("palpitao_selected_partner") || null
 };
 
@@ -77,40 +75,7 @@ const flagCdn = {
   "TUN": "tn"
 };
 
-
-const AD_SLOTS = [
-  { code: "banner_palpitar", label: "Tela Palpitar", help: "Aparece para quem vai lançar palpites." },
-  { code: "banner_palpites", label: "Tela Palpites", help: "Aparece na consulta dos palpites por rodada." },
-  { code: "banner_parceiros", label: "Tela Parceiros", help: "Aparece na ficha dos participantes/parceiros." },
-  { code: "banner_brasil", label: "Tela Brasil", help: "Aparece nos jogos da Seleção Brasileira." },
-  { code: "banner_jogos", label: "Tela Jogos", help: "Aparece na consulta geral dos jogos e placares." },
-  { code: "banner_tabelas", label: "Tela Tabelas", help: "Aparece na classificação dos grupos." },
-  { code: "banner_ranking", label: "Tela Ranking", help: "Aparece no ranking geral e vencedores da rodada." }
-];
-
-const VIEW_AD_SLOT = {
-  palpitar: "banner_palpitar",
-  palpites: "banner_palpites",
-  parceiros: "banner_parceiros",
-  brasil: "banner_brasil",
-  jogos: "banner_jogos",
-  tabelas: "banner_tabelas",
-  ranking: "banner_ranking"
-};
-
-function defaultAds() {
-  return AD_SLOTS.map((slot) => ({
-    slot_code: slot.code,
-    title: "",
-    text: "",
-    image_url: "",
-    link_url: "",
-    active: false,
-    updated_at: null
-  }));
-}
-
-const DATA_VERSION = "2026_FULL_GROUPS_V10_REPOSITORIO_ANUNCIOS";
+const DATA_VERSION = "2026_FULL_GROUPS_V9_6_HEADER_LAYOUT_FIX";
 
 const groupOrder = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"];
 
@@ -1526,8 +1491,7 @@ function saveLocal() {
     profiles: state.profiles,
     teams: state.teams,
     games: state.games,
-    predictions: state.predictions,
-    ads: state.ads
+    predictions: state.predictions
   }));
   localStorage.setItem("palpitao_profile", JSON.stringify(state.profile));
 }
@@ -1539,7 +1503,6 @@ function loadLocal() {
   state.teams = data.teams || [];
   state.games = data.games || [];
   state.predictions = data.predictions || [];
-  state.ads = mergeAds(data.ads || []);
 }
 
 async function loadData() {
@@ -1551,12 +1514,11 @@ async function loadData() {
     return;
   }
 
-  const [profiles, teams, games, predictions, ads] = await Promise.all([
+  const [profiles, teams, games, predictions] = await Promise.all([
     supabase.from("profiles").select("*").order("nome"),
     supabase.from("teams").select("*").order("nome"),
     supabase.from("games").select("*").order("data_hora"),
-    supabase.from("predictions").select("*"),
-    supabase.from("ads").select("*").order("slot_code")
+    supabase.from("predictions").select("*")
   ]);
 
   if (profiles.error || teams.error || games.error || predictions.error) {
@@ -1569,8 +1531,7 @@ async function loadData() {
   state.teams = teams.data;
   state.games = games.data;
   state.predictions = predictions.data;
-  state.ads = ads.error ? mergeAds([]) : mergeAds(ads.data || []);
-  state.message = ads.error ? "Supabase carregou, mas o repositório de anúncios ainda não foi instalado. Rode o patch V10." : "";
+  state.message = "";
   render();
 }
 
@@ -1587,17 +1548,12 @@ function normalizeLoadedProfile(profile) {
     nome: profile?.nome || profile?.apelido || profile?.email || "Palpiteiro",
     apelido: profile?.apelido || profile?.nome || profile?.email || "Palpiteiro",
     email: profile?.email || "",
-    cpf: profile?.cpf || profile?.CPF || "",
     whatsapp: profile?.whatsapp || profile?.WhatsApp || "",
     role: normalizeRole(profile?.role || profile?.papel || profile?.funcao || profile?.função || "participante"),
     senha: profile?.senha || "1234",
     ativo: profile?.ativo !== false,
     created_at: profile?.created_at || null
   };
-}
-
-function onlyDigits(value) {
-  return String(value || "").replace(/\D+/g, "");
 }
 
 function normalizeText(value) {
@@ -2546,225 +2502,6 @@ function renderPartnerDetail(profile) {
   `;
 }
 
-
-function normalizeLoadedAd(ad) {
-  return {
-    slot_code: ad?.slot_code || ad?.code || "",
-    title: ad?.title || ad?.titulo || "",
-    text: ad?.text || ad?.texto || "",
-    image_url: ad?.image_url || ad?.imagem_url || "",
-    link_url: ad?.link_url || ad?.url || "",
-    active: ad?.active === true || ad?.ativo === true,
-    updated_at: ad?.updated_at || null
-  };
-}
-
-function mergeAds(rows) {
-  const bySlot = new Map((rows || []).map((item) => [item.slot_code || item.code, normalizeLoadedAd(item)]));
-  return defaultAds().map((ad) => ({ ...ad, ...(bySlot.get(ad.slot_code) || {}) }));
-}
-
-function adSlotInfo(slotCode) {
-  return AD_SLOTS.find((slot) => slot.code === slotCode) || { code: slotCode, label: slotCode, help: "" };
-}
-
-function adForSlot(slotCode) {
-  return state.ads.find((ad) => ad.slot_code === slotCode) || defaultAds().find((ad) => ad.slot_code === slotCode) || normalizeLoadedAd({ slot_code: slotCode });
-}
-
-function adDisplayType(slotCode) {
-  return slotCode === "banner_palpitar" ? "square" : "wide";
-}
-
-function adImageSrc(ad) {
-  const url = ad?.image_url || "";
-  if (!url) return "";
-  const version = encodeURIComponent(ad?.updated_at || "");
-  if (!version) return url;
-  return url.includes("?") ? `${url}&v=${version}` : `${url}?v=${version}`;
-}
-
-function renderAdContent(ad, slotCode, options = {}) {
-  const type = options.type || adDisplayType(slotCode);
-  const imageClass = type === "square" ? "ad-media-square" : "ad-media-wide";
-  return `
-    ${ad.image_url ? `<div class="ad-banner-image ${imageClass}"><img src="${escapeHtml(adImageSrc(ad))}" alt="${escapeHtml(ad.title || "Anúncio")}" loading="lazy"></div>` : ""}
-    <div class="ad-banner-copy">
-      ${ad.title ? `<strong>${escapeHtml(ad.title)}</strong>` : ""}
-      ${ad.text ? `<span>${escapeHtml(ad.text)}</span>` : ""}
-    </div>
-  `;
-}
-
-function renderAdSlot(slotCode, options = {}) {
-  const ad = adForSlot(slotCode);
-  if (!ad?.active || (!ad.image_url && !ad.title && !ad.text)) return "";
-  const type = options.type || adDisplayType(slotCode);
-  const content = renderAdContent(ad, slotCode, { type });
-  const className = `ad-banner ad-banner-${type}`;
-  if (ad.link_url) {
-    return `<a class="${className}" href="${escapeHtml(ad.link_url)}" target="_blank" rel="noreferrer">${content}</a>`;
-  }
-  return `<div class="${className}">${content}</div>`;
-}
-
-function renderHeroVisual() {
-  const ad = adForSlot("banner_palpitar");
-  if (ad?.active && (ad.image_url || ad.title || ad.text)) {
-    const content = renderAdContent(ad, "banner_palpitar", { type: "square" });
-    if (ad.link_url) {
-      return `<a class="hero-worldcup hero-ad-square" href="${escapeHtml(ad.link_url)}" target="_blank" rel="noreferrer" aria-label="Anúncio principal">${content}</a>`;
-    }
-    return `<div class="hero-worldcup hero-ad-square" aria-label="Anúncio principal">${content}</div>`;
-  }
-  return `
-        <a
-          class="hero-worldcup"
-          href="https://media.licdn.com/dms/image/v2/D4E1AAQE73S2n5CDnaA/storylineheaderimage-shrink_400_400/storylineheaderimage-shrink_400_400/0/1684502982782?e=2147483647&v=beta&t=hXy5uj7OCRckHP9XYDyOfNlQAlOSV5NauMFqqnWx6Ec"
-          target="_blank"
-          rel="noreferrer"
-          aria-label="Imagem decorativa da Copa 2026"
-        >
-          <img
-            src="https://media.licdn.com/dms/image/v2/D4E1AAQE73S2n5CDnaA/storylineheaderimage-shrink_400_400/storylineheaderimage-shrink_400_400/0/1684502982782?e=2147483647&v=beta&t=hXy5uj7OCRckHP9XYDyOfNlQAlOSV5NauMFqqnWx6Ec"
-            alt="Copa 2026"
-            loading="lazy"
-            onerror="this.closest('.hero-worldcup').classList.add('image-off')"
-          />
-          <span class="hero-worldcup-fallback">🏆 Copa 2026</span>
-        </a>
-  `;
-}
-
-function renderViewAd(view) {
-  const slotCode = VIEW_AD_SLOT[view];
-  return slotCode ? renderAdSlot(slotCode) : "";
-}
-
-function sanitizeFileName(name) {
-  return String(name || "banner")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-zA-Z0-9.\-_]+/g, "-")
-    .replace(/-+/g, "-")
-    .toLowerCase();
-}
-
-function fileToDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
-async function saveAd(slotCode) {
-  const slot = adSlotInfo(slotCode);
-  const current = adForSlot(slotCode);
-  const fileInput = document.querySelector(`[data-ad-file="${slotCode}"]`);
-  const file = fileInput?.files?.[0] || null;
-  let imageUrl = current.image_url || "";
-
-  if (file) {
-    const accepted = ["image/jpeg", "image/png", "image/webp"];
-    if (!accepted.includes(file.type)) {
-      state.message = "Formato inválido. Use JPG, PNG ou WEBP.";
-      render();
-      return;
-    }
-    if (file.size > 2 * 1024 * 1024) {
-      state.message = "Imagem muito pesada. Use arquivo com até 2 MB.";
-      render();
-      return;
-    }
-
-    if (supabase) {
-      const path = `${slotCode}/${Date.now()}-${sanitizeFileName(file.name)}`;
-      const { error: uploadError } = await supabase.storage
-        .from("palpitao-ads")
-        .upload(path, file, { cacheControl: "3600", upsert: true, contentType: file.type });
-      if (uploadError) {
-        state.message = `Erro ao subir imagem: ${uploadError.message}. Rode o patch V10 no Supabase e tente novamente.`;
-        render();
-        return;
-      }
-      const { data } = supabase.storage.from("palpitao-ads").getPublicUrl(path);
-      imageUrl = data.publicUrl;
-    } else {
-      imageUrl = await fileToDataUrl(file);
-    }
-  }
-
-  const payload = {
-    slot_code: slotCode,
-    title: document.querySelector(`[data-ad-title="${slotCode}"]`)?.value.trim() || "",
-    text: document.querySelector(`[data-ad-text="${slotCode}"]`)?.value.trim() || "",
-    image_url: imageUrl,
-    link_url: document.querySelector(`[data-ad-link="${slotCode}"]`)?.value.trim() || "",
-    active: document.querySelector(`[data-ad-active="${slotCode}"]`)?.checked === true,
-    updated_at: new Date().toISOString()
-  };
-
-  if (supabase) {
-    const { error } = await supabase.from("ads").upsert(payload, { onConflict: "slot_code" });
-    if (error) {
-      state.message = `Erro ao salvar anúncio: ${error.message}. Rode o patch V10 no Supabase.`;
-      render();
-      return;
-    }
-  }
-
-  state.ads = mergeAds([...state.ads.filter((ad) => ad.slot_code !== slotCode), payload]);
-
-  if (supabase) {
-    const { data: refreshedAds, error: refreshError } = await supabase
-      .from("ads")
-      .select("*")
-      .order("slot_code");
-    if (!refreshError) {
-      state.ads = mergeAds(refreshedAds || []);
-    }
-  }
-
-  state.message = `Anúncio salvo para ${slot.label}. Se não aparecer na tela, confira se o campo Ativo está marcado e aperte F5.`;
-  saveLocal();
-  render();
-}
-
-function renderAdsAdminPanel() {
-  return `
-    <div class="main-panel single-span">
-      <div class="section-head"><div class="badge-icon">📣</div><div><h2>Repositório de anúncios</h2><p>A empresa troca a imagem quando quiser. O espaço no app continua fixo.</p></div></div>
-      <div class="rule-card ad-rule"><strong>Formato recomendado</strong><span>JPG, PNG ou WEBP • até 2 MB. Tela Palpitar/Topo: quadrado 1200 x 1200 px. Demais telas: retangular 1200 x 400 px.</span></div>
-      <div class="ads-admin-grid">
-        ${AD_SLOTS.map((slot) => {
-          const ad = adForSlot(slot.code);
-          const type = adDisplayType(slot.code);
-          const typeLabel = type === "square" ? "Formato quadrado • 1200 x 1200 px" : "Formato retangular • 1200 x 400 px";
-          return `
-            <div class="ad-admin-card ad-admin-${type}">
-              <div class="ad-admin-head">
-                <div><strong>${slot.label}</strong><span>${slot.help}</span></div>
-                <label class="ad-toggle"><input type="checkbox" data-ad-active="${slot.code}" ${ad.active ? "checked" : ""}> Ativo</label>
-              </div>
-              <div class="ad-admin-preview ${ad.image_url ? "has-image" : ""}">
-                ${ad.image_url ? `<img src="${escapeHtml(ad.image_url)}" alt="${escapeHtml(ad.title || slot.label)}" loading="lazy">` : `<span>Sem imagem publicada</span>`}
-              </div>
-              <div class="ad-format-hint">${typeLabel}</div>
-              <label class="field"><span>Título</span><input data-ad-title="${slot.code}" value="${escapeHtml(ad.title)}" placeholder="Ex.: Oferta do tomate"></label>
-              <label class="field"><span>Texto curto</span><input data-ad-text="${slot.code}" value="${escapeHtml(ad.text)}" placeholder="Ex.: Tomate italiano R$ 5,99/kg"></label>
-              <label class="field"><span>Link opcional</span><input data-ad-link="${slot.code}" value="${escapeHtml(ad.link_url)}" placeholder="https://..."></label>
-              <label class="field"><span>Trocar imagem</span><input class="file-input" type="file" accept="image/png,image/jpeg,image/webp" data-ad-file="${slot.code}"></label>
-              <button class="btn btn-primary wide" data-save-ad="${slot.code}">Salvar anúncio</button>
-            </div>
-          `;
-        }).join("")}
-      </div>
-    </div>
-  `;
-}
-
 function renderPartners() {
   const profiles = activeProfiles();
   const current = selectedPartner();
@@ -2897,113 +2634,6 @@ async function importCsv() {
   }
   state.message = `Importação concluída: ${inserted} inseridos, ${updated} atualizados, ${rejected.length} rejeitados.`;
   state.csv = null;
-  saveLocal();
-  render();
-}
-
-
-function splitCsvLine(line, separator) {
-  const result = [];
-  let current = "";
-  let quoted = false;
-  for (let i = 0; i < line.length; i += 1) {
-    const char = line[i];
-    const next = line[i + 1];
-    if (char === '"' && quoted && next === '"') {
-      current += '"';
-      i += 1;
-    } else if (char === '"') {
-      quoted = !quoted;
-    } else if (char === separator && !quoted) {
-      result.push(current.trim());
-      current = "";
-    } else {
-      current += char;
-    }
-  }
-  result.push(current.trim());
-  return result;
-}
-
-function parseParticipantsCsv(text) {
-  const rawLines = String(text || "").split(/\r?\n/).filter((line) => line.trim());
-  if (rawLines.length < 2) return { missing: ["cpf", "nome"], rows: [] };
-  const separator = (rawLines[0].match(/;/g) || []).length > (rawLines[0].match(/,/g) || []).length ? ";" : ",";
-  const headers = splitCsvLine(rawLines.shift(), separator).map((item) => normalizeText(item).replace(/\s+/g, "_"));
-  const hasCpf = headers.includes("cpf") || headers.includes("documento") || headers.includes("login");
-  const hasName = headers.includes("nome") || headers.includes("primeiro_nome") || headers.includes("apelido");
-  const missing = [];
-  if (!hasCpf) missing.push("cpf");
-  if (!hasName) missing.push("nome ou primeiro_nome");
-  const rows = rawLines.map((line, index) => {
-    const values = splitCsvLine(line, separator);
-    const row = { linha: index + 2 };
-    headers.forEach((header, i) => { row[header] = values[i] || ""; });
-    return row;
-  });
-  return { missing, rows };
-}
-
-function firstNameFrom(row) {
-  const name = row.primeiro_nome || row.nome || row.apelido || "Cliente";
-  return String(name).trim().split(/\s+/)[0] || "Cliente";
-}
-
-function passwordFromCpfName(cpf, name) {
-  const digits = onlyDigits(cpf);
-  const last = digits.slice(-4).padStart(4, "0");
-  const initial = normalizeText(name).charAt(0) || "p";
-  return `${last}${initial}`;
-}
-
-async function importParticipantsCsv() {
-  if (!state.participantCsv || state.participantCsv.missing.length) return;
-  let inserted = 0;
-  let updated = 0;
-  const rejected = [];
-  const now = new Date().toISOString();
-
-  for (const row of state.participantCsv.rows) {
-    const cpf = onlyDigits(row.cpf || row.documento || row.login);
-    const nome = row.nome?.trim() || firstNameFrom(row);
-    const apelido = row.apelido?.trim() || firstNameFrom(row);
-    if (!cpf || !nome) {
-      rejected.push(row);
-      continue;
-    }
-    const existing = state.profiles.find((profile) => onlyDigits(profile.cpf) === cpf || normalizeText(profile.apelido) === normalizeText(cpf));
-    const payload = {
-      id: existing?.id || crypto.randomUUID(),
-      nome,
-      apelido,
-      email: row.email?.trim() || `${cpf}@palpitao.local`,
-      cpf,
-      whatsapp: row.telefone?.trim() || row.whatsapp?.trim() || "",
-      role: normalizeRole(row.role || row.perfil || "participante"),
-      senha: row.senha?.trim() || passwordFromCpfName(cpf, apelido),
-      ativo: true,
-      created_at: existing?.created_at || now
-    };
-
-    if (supabase) {
-      const { error } = await supabase.from("profiles").upsert(payload, { onConflict: "cpf" });
-      if (error) {
-        rejected.push({ ...row, erro: error.message });
-        continue;
-      }
-    }
-
-    if (existing) {
-      Object.assign(existing, payload);
-      updated += 1;
-    } else {
-      state.profiles.push(payload);
-      inserted += 1;
-    }
-  }
-
-  state.message = `Importação de participantes concluída: ${inserted} inseridos, ${updated} atualizados, ${rejected.length} rejeitados. Login: CPF. Senha padrão: 4 últimos dígitos do CPF + primeira letra do nome.`;
-  state.participantCsv = null;
   saveLocal();
   render();
 }
@@ -3171,16 +2801,6 @@ function renderAdmin() {
           <button class="btn btn-primary wide" data-import-csv ${state.csv.missing.length ? "disabled" : ""}>Importar CSV</button>
         ` : `<div class="rule-card"><strong>Modelo</strong><span>Use o arquivo docs/modelo_importacao_jogos.csv.</span></div>`}
       </div>
-      ${renderAdsAdminPanel()}
-      <div class="main-panel single-span">
-        <div class="section-head"><div class="badge-icon">📥</div><div><h2>Importar participantes</h2><p>Cadastre clientes em lote por Excel salvo como CSV. Login pelo CPF.</p></div></div>
-        <input class="file-input" type="file" accept=".csv,text/csv" data-participants-csv-file>
-        ${state.participantCsv ? `
-          <div class="notice ${state.participantCsv.missing.length ? "error" : ""}">${state.participantCsv.missing.length ? `Cabeçalhos ausentes: ${state.participantCsv.missing.join(", ")}` : `${state.participantCsv.rows.length} participante(s) pronto(s) para importar.`}</div>
-          <div class="csv-preview"><table><tbody>${state.participantCsv.rows.slice(0, 5).map((row) => `<tr><td>${row.cpf || row.documento || row.login}</td><td>${row.nome || row.primeiro_nome || row.apelido}</td><td>${row.email || ""}</td></tr>`).join("")}</tbody></table></div>
-          <button class="btn btn-primary wide" data-import-participants-csv ${state.participantCsv.missing.length ? "disabled" : ""}>Importar participantes</button>
-        ` : `<div class="rule-card"><strong>Modelo</strong><span>Use colunas: cpf;nome;telefone;email. A senha inicial será os 4 últimos dígitos do CPF + primeira letra do nome.</span></div>`}
-      </div>
       <div class="main-panel single-span">
         <div class="section-head"><div class="badge-icon">👥</div><div><h2>Usuários e administradores</h2><p>Cadastre palpiteiros a qualquer momento, defina senha e promova mais de um admin.</p></div></div>
         <div class="admin-summary">
@@ -3220,7 +2840,7 @@ function loginProfile() {
 
   const userKey = normalizeText(userInput);
   const profile = state.profiles.find((item) => {
-    const possibleUsers = [item.apelido, item.nome, item.email, item.cpf, onlyDigits(item.cpf)].map(normalizeText);
+    const possibleUsers = [item.apelido, item.nome, item.email].map(normalizeText);
     return item.ativo !== false && possibleUsers.includes(userKey);
   });
 
@@ -3299,7 +2919,21 @@ function renderHeader() {
           <p>Crava o placar antes do início da partida. Acertou exato, soma 1 ponto.</p>
           <div class="hero-stats"><span>1 ponto por cravada</span><span>Trava no horário do jogo</span><span>${selected}</span></div>
         </div>
-        ${renderHeroVisual()}
+        <a
+          class="hero-worldcup"
+          href="https://media.licdn.com/dms/image/v2/D4E1AAQE73S2n5CDnaA/storylineheaderimage-shrink_400_400/storylineheaderimage-shrink_400_400/0/1684502982782?e=2147483647&v=beta&t=hXy5uj7OCRckHP9XYDyOfNlQAlOSV5NauMFqqnWx6Ec"
+          target="_blank"
+          rel="noreferrer"
+          aria-label="Imagem decorativa da Copa 2026"
+        >
+          <img
+            src="https://media.licdn.com/dms/image/v2/D4E1AAQE73S2n5CDnaA/storylineheaderimage-shrink_400_400/storylineheaderimage-shrink_400_400/0/1684502982782?e=2147483647&v=beta&t=hXy5uj7OCRckHP9XYDyOfNlQAlOSV5NauMFqqnWx6Ec"
+            alt="Copa 2026"
+            loading="lazy"
+            onerror="this.closest('.hero-worldcup').classList.add('image-off')"
+          />
+          <span class="hero-worldcup-fallback">🏆 Copa 2026</span>
+        </a>
       </div>
     </header>
   `;
@@ -3325,7 +2959,6 @@ function render() {
           ${Object.keys(views).map((view) => `<button class="tab ${state.view === view ? "active" : ""}" data-view="${view}">${labels[view]}</button>`).join("")}
         </nav>
         ${state.message ? `<div class="notice global">${state.message}</div>` : ""}
-        ${renderViewAd(state.view)}
         ${safeRenderView(views[state.view])}
       </main>
     </div>
@@ -3368,14 +3001,6 @@ function bindEvents() {
   document.querySelectorAll("[data-set-profile-role]").forEach((button) => button.addEventListener("click", () => setProfileRole(button.dataset.setProfileRole, button.dataset.roleTarget)));
   document.querySelectorAll("[data-toggle-profile-active]").forEach((button) => button.addEventListener("click", () => toggleProfileActive(button.dataset.toggleProfileActive)));
   document.querySelectorAll("[data-reset-profile-password]").forEach((button) => button.addEventListener("click", () => resetProfilePassword(button.dataset.resetProfilePassword)));
-  document.querySelectorAll("[data-save-ad]").forEach((button) => button.addEventListener("click", () => saveAd(button.dataset.saveAd)));
-  document.querySelector("[data-import-participants-csv]")?.addEventListener("click", importParticipantsCsv);
-  document.querySelector("[data-participants-csv-file]")?.addEventListener("change", async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-    state.participantCsv = parseParticipantsCsv(await file.text());
-    render();
-  });
   document.querySelector("[data-import-csv]")?.addEventListener("click", importCsv);
   document.querySelector("[data-csv-file]")?.addEventListener("change", async (event) => {
     const file = event.target.files[0];
