@@ -1679,17 +1679,153 @@ th { color: var(--muted); font-size: 11px; text-transform: uppercase; }
   }
 }
 
-/* HOTFIX — PALPITÃO ORIGINAL — Tabelas no celular
-   Corrige placar acavalado na ABA Tabelas, igual ao ajuste feito no Palpitão Empresas.
-   Cerca elétrica: altera apenas o layout visual dos mini-jogos da tela Tabelas. */
 
-.mini-match {
+/* HOTFIX V11 — anúncios em tamanho vendável: quadrado no topo e retangular nas telas */
+.ad-banner {
+  display: grid;
+  gap: 10px;
+  align-items: stretch;
+  margin: 12px 0 18px;
+  padding: 12px;
+  color: var(--ink);
+  background: linear-gradient(135deg, #ffffff, #f2fff7);
+  border: 1px solid #cfe8d8;
+  border-radius: 22px;
+  box-shadow: 0 14px 34px rgba(0, 90, 40, .10);
+  text-decoration: none;
+}
+.ad-banner-wide {
+  max-width: 740px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.ad-banner-square {
+  max-width: 310px;
+  margin-left: 0;
+  margin-right: auto;
+}
+.ad-banner-image {
+  overflow: hidden;
+  border-radius: 18px;
+  background: #edf5f0;
+  border: 1px solid rgba(0, 150, 70, .12);
+}
+.ad-media-wide { aspect-ratio: 3 / 1; min-height: 128px; }
+.ad-media-square { aspect-ratio: 1 / 1; min-height: 220px; }
+.ad-banner-image img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ad-banner-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 2px 4px 0;
+}
+.ad-banner-copy strong { color: var(--green-dark); font-size: 20px; line-height: 1.05; }
+.ad-banner-copy span { color: var(--muted); font-weight: 900; font-size: 14px; line-height: 1.25; }
+
+.hero-ad-square {
+  display: grid;
+  gap: 8px;
+  text-decoration: none;
+  color: #fff;
+  width: min(250px, 31vw);
+}
+.hero-ad-square .ad-banner-image {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  min-height: 0;
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,.25);
+  box-shadow: 0 16px 40px rgba(0,0,0,.22);
+}
+.hero-ad-square .ad-banner-copy {
+  padding: 0;
+  text-align: center;
+}
+.hero-ad-square .ad-banner-copy strong {
+  color: #fff;
+  font-size: 17px;
+  text-shadow: 0 2px 8px rgba(0,0,0,.35);
+}
+.hero-ad-square .ad-banner-copy span {
+  color: #ffe55c;
+  font-size: 13px;
+  text-shadow: 0 2px 8px rgba(0,0,0,.35);
+}
+
+.ad-rule { margin-bottom: 14px; }
+.ads-admin-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.ad-admin-card {
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: #fff;
+  padding: 14px;
+  display: grid;
+  gap: 10px;
+  box-shadow: 0 10px 22px rgba(15, 40, 80, .07);
+}
+.ad-admin-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: start;
+}
+.ad-admin-head strong { display: block; color: var(--blue); }
+.ad-admin-head span { display: block; color: var(--muted); font-size: 12px; font-weight: 800; }
+.ad-toggle { display: inline-flex; align-items: center; gap: 6px; font-weight: 950; color: var(--green-dark); }
+.ad-admin-preview {
+  display: grid;
+  place-items: center;
+  min-height: 88px;
+  border-radius: 16px;
+  background: #eef6f1;
+  border: 1px dashed #b8d6c3;
+  color: var(--muted);
+  font-weight: 900;
+  overflow: hidden;
+}
+.ad-admin-square .ad-admin-preview {
+  aspect-ratio: 1 / 1;
+  min-height: 220px;
+}
+.ad-admin-wide .ad-admin-preview {
+  aspect-ratio: 3 / 1;
+  min-height: 112px;
+}
+.ad-admin-preview.has-image { border-style: solid; }
+.ad-admin-preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ad-format-hint {
+  margin-top: -4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+@media (max-width: 760px) {
+  .ad-banner-wide, .ad-banner-square { max-width: 100%; }
+  .ad-media-wide { min-height: 112px; }
+  .ad-media-square { min-height: 180px; }
+  .hero-ad-square {
+    justify-self: start;
+    width: min(180px, 56vw);
+  }
+  .ads-admin-grid { grid-template-columns: 1fr; }
+}
+
+/* HOTFIX V12 — Tabelas mobile: placar sem acavalamento
+   Cerca elétrica: altera apenas o layout visual dos jogos dentro da tela Tabelas.
+   Não altera lógica, banco, ranking, palpites, anúncios, usuários ou resultados. */
+
+.tables-like-ge .mini-match {
   grid-template-columns: minmax(0, 1fr) 52px minmax(0, 1fr);
   gap: 10px;
   align-items: center;
 }
 
-.mini-team {
+.tables-like-ge .mini-team {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 28px;
   align-items: center;
@@ -1698,26 +1834,26 @@ th { color: var(--muted); font-size: 11px; text-transform: uppercase; }
   line-height: 1.12;
 }
 
-.mini-team-b {
+.tables-like-ge .mini-team-b {
   grid-template-columns: 28px minmax(0, 1fr);
 }
 
-.mini-team-name {
+.tables-like-ge .mini-team-name {
   min-width: 0;
   white-space: normal;
   overflow-wrap: anywhere;
   word-break: normal;
 }
 
-.mini-team-a {
+.tables-like-ge .mini-team-a {
   text-align: right;
 }
 
-.mini-team-b {
+.tables-like-ge .mini-team-b {
   text-align: left;
 }
 
-.mini-score {
+.tables-like-ge .mini-score {
   display: grid;
   place-items: center;
   width: 52px;
@@ -1733,43 +1869,41 @@ th { color: var(--muted); font-size: 11px; text-transform: uppercase; }
 }
 
 @media (max-width: 700px) {
-  .mini-game {
+  .tables-like-ge .mini-game {
     padding: 16px 10px;
   }
 
-  .mini-date {
+  .tables-like-ge .mini-date {
     margin-bottom: 10px;
     font-size: 13px;
     line-height: 1.2;
-    text-align: center;
   }
 
-  .mini-match {
+  .tables-like-ge .mini-match {
     grid-template-columns: minmax(0, 1fr) 46px minmax(0, 1fr);
     gap: 8px;
   }
 
-  .mini-team,
-  .mini-team-b {
+  .tables-like-ge .mini-team,
+  .tables-like-ge .mini-team-b {
     grid-template-columns: 1fr;
     justify-items: center;
     gap: 6px;
   }
 
-  .mini-team-name {
+  .tables-like-ge .mini-team-name {
     font-size: 20px;
     font-weight: 850;
     line-height: 1.05;
     text-align: center;
   }
 
-  .mini-team .flag {
+  .tables-like-ge .mini-team .flag {
     width: 34px;
     height: 24px;
-    border-radius: 6px;
   }
 
-  .mini-score {
+  .tables-like-ge .mini-score {
     width: 46px;
     min-height: 48px;
     font-size: 21px;
@@ -1777,22 +1911,26 @@ th { color: var(--muted); font-size: 11px; text-transform: uppercase; }
 }
 
 @media (max-width: 430px) {
-  .mini-match {
+  .tables-like-ge {
+    padding: 10px;
+  }
+
+  .tables-like-ge .mini-match {
     grid-template-columns: minmax(0, 1fr) 42px minmax(0, 1fr);
     gap: 6px;
   }
 
-  .mini-team-name {
+  .tables-like-ge .mini-team-name {
     font-size: 17px;
     line-height: 1.05;
   }
 
-  .mini-team .flag {
+  .tables-like-ge .mini-team .flag {
     width: 30px;
     height: 21px;
   }
 
-  .mini-score {
+  .tables-like-ge .mini-score {
     width: 42px;
     min-height: 48px;
     font-size: 19px;
@@ -1801,38 +1939,72 @@ th { color: var(--muted); font-size: 11px; text-transform: uppercase; }
 }
 
 @media (orientation: landscape) and (max-height: 520px) {
-  .mini-match {
+  .tables-like-ge .mini-match {
     grid-template-columns: minmax(0, 1fr) 58px minmax(0, 1fr);
     gap: 12px;
   }
 
-  .mini-team,
-  .mini-team-b {
+  .tables-like-ge .mini-team,
+  .tables-like-ge .mini-team-b {
     grid-template-columns: minmax(0, 1fr) 32px;
     justify-items: stretch;
   }
 
-  .mini-team-b {
+  .tables-like-ge .mini-team-b {
     grid-template-columns: 32px minmax(0, 1fr);
   }
 
-  .mini-team-a {
+  .tables-like-ge .mini-team-a {
     text-align: right;
   }
 
-  .mini-team-b {
+  .tables-like-ge .mini-team-b {
     text-align: left;
   }
 
-  .mini-team-name {
+  .tables-like-ge .mini-team-name {
     font-size: 20px;
     line-height: 1.1;
   }
 
-  .mini-score {
+  .tables-like-ge .mini-score {
     width: 58px;
     min-height: 42px;
     font-size: 20px;
+  }
+}
+
+/* HOTFIX V13 — Anúncios: atualização e montagem nas telas
+   Garante imagem visível no espaço público e evita cache de imagem antiga.
+   Cerca elétrica: não altera banco, usuários, palpites, resultados, ranking ou regras. */
+
+.ad-banner-image {
+  display: block;
+}
+
+.ad-banner-image img {
+  min-width: 100%;
+  min-height: 100%;
+}
+
+.ad-banner-copy:empty {
+  display: none;
+}
+
+.hero-ad-square .ad-banner-image:empty,
+.ad-banner .ad-banner-image:empty {
+  display: none;
+}
+
+.hero-ad-square {
+  align-self: center;
+  justify-self: center;
+}
+
+@media (max-width: 700px) {
+  .hero-ad-square {
+    width: min(210px, 68vw);
+    justify-self: start;
   }
 }
 
