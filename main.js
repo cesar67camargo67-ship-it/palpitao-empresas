@@ -1687,23 +1687,38 @@ function predictionFor(gameId, userId = state.profile?.id) {
   return state.predictions.find((item) => item.game_id === gameId && item.user_id === userId);
 }
 
+function matchOutcome(golsA, golsB) {
+  if (Number(golsA) > Number(golsB)) return "A";
+  if (Number(golsA) < Number(golsB)) return "B";
+  return "E";
+}
+
+function calculatePredictionScore(prediction, game) {
+  if (!prediction || !game || game.gols_a === null || game.gols_b === null) {
+    return { acertou: null, acertouResultado: null, pontos: 0, tipo: "pendente" };
+  }
+
+  const palpiteA = Number(prediction.gols_a_palpite);
+  const palpiteB = Number(prediction.gols_b_palpite);
+  const oficialA = Number(game.gols_a);
+  const oficialB = Number(game.gols_b);
+
+  const acertou = palpiteA === oficialA && palpiteB === oficialB;
+  const acertouResultado = matchOutcome(palpiteA, palpiteB) === matchOutcome(oficialA, oficialB);
+  const pontos = acertou ? 3 : acertouResultado ? 1 : 0;
+  const tipo = acertou ? "placar_exato" : acertouResultado ? "resultado" : "erro";
+
+  return { acertou, acertouResultado, pontos, tipo };
+}
+
 function scorePrediction(prediction, game) {
-  if (game.gols_a === null || game.gols_b === null) return { ...prediction, acertou: null, pontos: 0 };
-  const acertou = Number(prediction.gols_a_palpite) === Number(game.gols_a) && Number(prediction.gols_b_palpite) === Number(game.gols_b);
-  return { ...prediction, acertou, pontos: acertou ? 1 : 0 };
+  const score = calculatePredictionScore(prediction, game);
+  return { ...prediction, ...score };
 }
 
 function computedPredictionScore(prediction, game = null) {
   const targetGame = game || state.games.find((item) => item.id === prediction?.game_id);
-  if (!prediction || !targetGame || targetGame.gols_a === null || targetGame.gols_b === null) {
-    return { acertou: null, pontos: 0 };
-  }
-
-  const acertou =
-    Number(prediction.gols_a_palpite) === Number(targetGame.gols_a) &&
-    Number(prediction.gols_b_palpite) === Number(targetGame.gols_b);
-
-  return { acertou, pontos: acertou ? 1 : 0 };
+  return calculatePredictionScore(prediction, targetGame);
 }
 
 async function upsertPrediction(gameId) {
@@ -1779,14 +1794,16 @@ function renderGameCard(game, mode = "predict") {
   const locked = isLocked(game);
   const status = gameStatus(game);
   const officialScore = game.gols_a === null || game.gols_b === null ? "x" : `${game.gols_a} x ${game.gols_b}`;
-  const scoreView = prediction ? computedPredictionScore(prediction, game) : { acertou: null, pontos: 0 };
+  const scoreView = prediction ? computedPredictionScore(prediction, game) : { acertou: null, acertouResultado: null, pontos: 0 };
   const result = scoreView.acertou === true
-    ? "✅ Cravou! +1 ponto."
-    : scoreView.acertou === false
-      ? "❌ Não foi dessa vez."
-      : prediction
-        ? `Seu palpite: ${prediction.gols_a_palpite} x ${prediction.gols_b_palpite}`
-        : "Sem palpite ainda";
+    ? "✅ Cravou o placar! +3 pontos."
+    : scoreView.acertouResultado === true
+      ? "🟡 Acertou o resultado! +1 ponto."
+      : scoreView.acertou === false
+        ? "❌ Não foi dessa vez."
+        : prediction
+          ? `Seu palpite: ${prediction.gols_a_palpite} x ${prediction.gols_b_palpite}`
+          : "Sem palpite ainda";
 
   return `
     <article class="game-card status-${status}">
@@ -1819,7 +1836,7 @@ function renderGameCard(game, mode = "predict") {
       <div class="game-date">⏱ ${formatDate(game.data_hora)}</div>
 
       ${mode === "predict" ? `
-        <div class="prediction-strip ${scoreView.acertou === true ? "hit" : ""}">${result}</div>
+        <div class="prediction-strip ${scoreView.pontos > 0 ? "hit" : ""}">${result}</div>
         <div class="predict-form">
           ${renderScoreInput(game, a.codigo, "a", prediction?.gols_a_palpite, locked)}
           <span class="versus">x</span>
@@ -1868,7 +1885,7 @@ function renderProfilePanel() {
       </div>
       <div class="rule-card">
         <strong>Regra simples</strong>
-        <span>Placar exato vale 1 ponto. O palpite trava no início da partida.</span>
+        <span>Placar exato vale 3 pontos. Acertar vitória ou empate vale 1 ponto. O palpite trava no início da partida.</span>
       </div>
       <button class="btn btn-light wide" data-logout>Sair</button>
     </aside>
@@ -2313,7 +2330,7 @@ function renderRoundWinners() {
   const rounds = roundWinnerRows();
   return `
     <div class="round-winners">
-      <div class="section-head compact"><div class="badge-icon">🎯</div><div><h2>Vencedor da rodada</h2><p>Quem somou mais cravadas na rodada. Se empatar, aparecem todos.</p></div></div>
+      <div class="section-head compact"><div class="badge-icon">🎯</div><div><h2>Vencedor da rodada</h2><p>Quem somou mais pontos na rodada. Se empatar, aparecem todos.</p></div></div>
       ${rounds.length ? rounds.map((round) => `
         <div class="round-card">
           <div><strong>${round.key}</strong><span>${round.games.length} jogo(s)</span></div>
@@ -2803,7 +2820,7 @@ function renderRanking() {
   return `
     <section class="ranking-page">
       <div class="main-panel ranking-main">
-        <div class="section-head"><div class="badge-icon">🏆</div><div><h2>Ranking geral</h2><p>1 ponto para cada placar exato.</p></div></div>
+        <div class="section-head"><div class="badge-icon">🏆</div><div><h2>Ranking geral</h2><p>Placar exato vale 3 pontos. Resultado certo vale 1 ponto.</p></div></div>
         <div class="ranking-list">
           ${rows.map((row, index) => `
             <div class="ranking-card ${index < 3 ? "podium" : ""}">
@@ -3296,8 +3313,8 @@ function renderHeader() {
         <div class="hero-copy">
           <span class="kicker">Copa 2026 • bolão entre amigos</span>
           <h1>Palpite simples. Ranking na hora.</h1>
-          <p>Crava o placar antes do início da partida. Acertou exato, soma 1 ponto.</p>
-          <div class="hero-stats"><span>1 ponto por cravada</span><span>Trava no horário do jogo</span><span>${selected}</span></div>
+          <p>Crava o placar antes do início da partida. Placar exato vale 3 pontos; resultado certo vale 1.</p>
+          <div class="hero-stats"><span>3 pts placar exato</span><span>1 pt resultado certo</span><span>Trava no horário do jogo</span><span>${selected}</span></div>
         </div>
         ${renderHeroVisual()}
       </div>

@@ -2008,3 +2008,24 @@ th { color: var(--muted); font-size: 11px; text-transform: uppercase; }
   }
 }
 
+/* HOTFIX V14 — PALPITÃO EMPRESAS — Nova pontuação
+   Placar exato = 3 pontos. Resultado certo, vitória ou empate = 1 ponto.
+   Mantém integralmente os anúncios e o repositório de propaganda do Empresas. */
+
+.prediction-strip.hit {
+  color: #fff;
+  background: linear-gradient(135deg, var(--green), #07b957);
+}
+
+@media (min-width: 701px) {
+  .hero-stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .hero-stats {
+    grid-template-columns: 1fr;
+  }
+}
+
