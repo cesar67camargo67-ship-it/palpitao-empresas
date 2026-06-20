@@ -2029,3 +2029,7 @@ th { color: var(--muted); font-size: 11px; text-transform: uppercase; }
   }
 }
 
+/* HOTFIX V15 — PALPITÃO EMPRESAS
+   Correção crítica: gravação real dos palpites no Supabase.
+   O payload enviado ao banco agora contém somente colunas existentes na tabela predictions. */
+

@@ -1721,10 +1721,28 @@ function computedPredictionScore(prediction, game = null) {
   return calculatePredictionScore(prediction, targetGame);
 }
 
+function predictionDbPayload(prediction) {
+  return {
+    id: prediction.id,
+    user_id: prediction.user_id,
+    game_id: prediction.game_id,
+    gols_a_palpite: prediction.gols_a_palpite,
+    gols_b_palpite: prediction.gols_b_palpite,
+    pontos: prediction.pontos || 0,
+    acertou: prediction.acertou,
+    updated_at: new Date().toISOString()
+  };
+}
+
 async function upsertPrediction(gameId) {
   const game = state.games.find((item) => item.id === gameId);
   if (!state.profile) {
     state.message = "Escolha um palpiteiro antes de salvar.";
+    render();
+    return;
+  }
+  if (!game) {
+    state.message = "Jogo não encontrado. Atualize a tela e tente novamente.";
     render();
     return;
   }
@@ -1734,8 +1752,10 @@ async function upsertPrediction(gameId) {
     return;
   }
 
-  const a = Number(document.querySelector(`#pa-${gameId}`).value);
-  const b = Number(document.querySelector(`#pb-${gameId}`).value);
+  const inputA = document.querySelector(`#pa-${gameId}`);
+  const inputB = document.querySelector(`#pb-${gameId}`);
+  const a = Number(inputA?.value);
+  const b = Number(inputB?.value);
   if (!Number.isInteger(a) || !Number.isInteger(b) || a < 0 || b < 0) {
     state.message = "Informe placares válidos, com gols iguais ou maiores que zero.";
     render();
@@ -1753,17 +1773,33 @@ async function upsertPrediction(gameId) {
     acertou: null
   }, game);
 
-  let supabaseWarning = "";
   if (supabase) {
-    const { error } = await supabase.from("predictions").upsert(payload, { onConflict: "user_id,game_id" });
+    const dbPayload = predictionDbPayload(payload);
+    const { data, error } = await supabase
+      .from("predictions")
+      .upsert(dbPayload, { onConflict: "user_id,game_id" })
+      .select()
+      .single();
+
     if (error) {
-      supabaseWarning = ` Atenção: não gravou no Supabase (${error.message}). Salvou apenas localmente neste navegador.`;
+      console.error("Erro ao gravar palpite no Supabase:", error);
+      state.message = `Erro ao gravar no banco: ${error.message}. O palpite não foi confirmado.`;
+      render();
+      return;
     }
+
+    const saved = data ? { ...payload, ...data } : payload;
+    state.predictions = state.predictions.filter((item) => !(item.user_id === saved.user_id && item.game_id === saved.game_id));
+    state.predictions.push(saved);
+    state.message = "Palpite gravado no banco com sucesso.";
+    saveLocal();
+    render();
+    return;
   }
 
   state.predictions = state.predictions.filter((item) => !(item.user_id === payload.user_id && item.game_id === payload.game_id));
   state.predictions.push(payload);
-  state.message = `Palpite salvo. Boa sorte!${supabaseWarning}`;
+  state.message = "Palpite salvo localmente. Configure o Supabase para gravar no banco real.";
   saveLocal();
   render();
 }
@@ -2848,10 +2884,28 @@ async function saveGameResult() {
   state.predictions = state.predictions.map((prediction) => prediction.game_id === game.id ? scorePrediction(prediction, game) : prediction);
 
   if (supabase) {
-    await supabase.from("games").update({ gols_a: game.gols_a, gols_b: game.gols_b, status: game.status }).eq("id", game.id);
+    const gameUpdate = await supabase
+      .from("games")
+      .update({ gols_a: game.gols_a, gols_b: game.gols_b, status: game.status })
+      .eq("id", game.id);
+
+    if (gameUpdate.error) {
+      console.error("Erro ao salvar resultado no Supabase:", gameUpdate.error);
+      state.message = `Erro ao salvar resultado no banco: ${gameUpdate.error.message}`;
+      render();
+      return;
+    }
+
     for (const prediction of state.predictions.filter((item) => item.game_id === game.id)) {
       const score = computedPredictionScore(prediction, game);
-      await supabase.from("predictions").update({ acertou: score.acertou, pontos: score.pontos }).eq("id", prediction.id);
+      const predictionUpdate = await supabase
+        .from("predictions")
+        .update({ acertou: score.acertou, pontos: score.pontos, updated_at: new Date().toISOString() })
+        .eq("id", prediction.id);
+
+      if (predictionUpdate.error) {
+        console.error("Erro ao recalcular palpite no Supabase:", predictionUpdate.error);
+      }
     }
   }
   state.message = "Resultado salvo e ranking recalculado.";
